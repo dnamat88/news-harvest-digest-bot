@@ -1,14 +1,14 @@
 
 import { useState, useEffect } from 'react'
-import { supabase, Feed, isSupabaseConfigured } from '@/lib/supabase'
+import { supabase, Articolo, isSupabaseConfigured } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
 
-export const useFeeds = () => {
-  const [feeds, setFeeds] = useState<Feed[]>([])
+export const useArticles = () => {
+  const [articles, setArticles] = useState<Articolo[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const fetchFeeds = async () => {
+  const fetchArticles = async () => {
     if (!isSupabaseConfigured() || !supabase) {
       setLoading(false)
       return
@@ -16,17 +16,17 @@ export const useFeeds = () => {
 
     try {
       const { data, error } = await supabase
-        .from('feeds')
+        .from('articoli')
         .select('*')
-        .order('ultimo_aggiornamento', { ascending: false, nullsLast: true })
+        .order('data_pubblicazione', { ascending: false })
 
       if (error) throw error
-      setFeeds(data || [])
+      setArticles(data || [])
     } catch (error: any) {
-      console.error('Error fetching feeds:', error)
+      console.error('Error fetching articles:', error)
       toast({
         title: 'Errore',
-        description: 'Impossibile caricare i feed RSS',
+        description: 'Impossibile caricare gli articoli',
         variant: 'destructive'
       })
     } finally {
@@ -34,7 +34,7 @@ export const useFeeds = () => {
     }
   }
 
-  const addFeed = async (url: string, nome: string) => {
+  const addArticle = async (article: Omit<Articolo, 'id' | 'user_id'>) => {
     if (!supabase) {
       toast({
         title: 'Errore',
@@ -45,31 +45,25 @@ export const useFeeds = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Utente non autenticato')
-
       const { data, error } = await supabase
-        .from('feeds')
+        .from('articoli')
         .insert([{ 
-          url, 
-          nome, 
-          attivo: true,
-          ultimo_aggiornamento: new Date().toISOString(),
-          user_id: user.id
+          ...article,
+          user_id: (await supabase.auth.getUser()).data.user?.id
         }])
         .select()
         .single()
 
       if (error) throw error
 
-      setFeeds(prev => [data, ...prev])
+      setArticles(prev => [data, ...prev])
       toast({
-        title: 'Feed aggiunto',
-        description: 'Il nuovo feed RSS è stato aggiunto con successo'
+        title: 'Articolo aggiunto',
+        description: 'Il nuovo articolo è stato aggiunto con successo'
       })
       return true
     } catch (error: any) {
-      console.error('Error adding feed:', error)
+      console.error('Error adding article:', error)
       toast({
         title: 'Errore',
         description: error.message,
@@ -79,24 +73,27 @@ export const useFeeds = () => {
     }
   }
 
-  const removeFeed = async (id: string) => {
+  const updateArticle = async (id: string, updates: Partial<Articolo>) => {
     if (!supabase) return
 
     try {
       const { error } = await supabase
-        .from('feeds')
-        .delete()
+        .from('articoli')
+        .update(updates)
         .eq('id', id)
 
       if (error) throw error
 
-      setFeeds(prev => prev.filter(feed => feed.id !== id))
+      setArticles(prev => prev.map(article => 
+        article.id === id ? { ...article, ...updates } : article
+      ))
+      
       toast({
-        title: 'Feed rimosso',
-        description: 'Il feed RSS è stato rimosso'
+        title: 'Articolo aggiornato',
+        description: 'L\'articolo è stato aggiornato con successo'
       })
     } catch (error: any) {
-      console.error('Error removing feed:', error)
+      console.error('Error updating article:', error)
       toast({
         title: 'Errore',
         description: error.message,
@@ -105,22 +102,24 @@ export const useFeeds = () => {
     }
   }
 
-  const toggleFeed = async (id: string, attivo: boolean) => {
+  const deleteArticle = async (id: string) => {
     if (!supabase) return
 
     try {
       const { error } = await supabase
-        .from('feeds')
-        .update({ attivo })
+        .from('articoli')
+        .delete()
         .eq('id', id)
 
       if (error) throw error
 
-      setFeeds(prev => prev.map(feed => 
-        feed.id === id ? { ...feed, attivo } : feed
-      ))
+      setArticles(prev => prev.filter(article => article.id !== id))
+      toast({
+        title: 'Articolo eliminato',
+        description: 'L\'articolo è stato eliminato'
+      })
     } catch (error: any) {
-      console.error('Error toggling feed:', error)
+      console.error('Error deleting article:', error)
       toast({
         title: 'Errore',
         description: error.message,
@@ -130,15 +129,15 @@ export const useFeeds = () => {
   }
 
   useEffect(() => {
-    fetchFeeds()
+    fetchArticles()
   }, [])
 
   return {
-    feeds,
+    articles,
     loading,
-    addFeed,
-    removeFeed,
-    toggleFeed,
-    refetch: fetchFeeds
+    addArticle,
+    updateArticle,
+    deleteArticle,
+    refetch: fetchArticles
   }
 }

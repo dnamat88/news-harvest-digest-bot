@@ -1,43 +1,71 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Mail, Send, Settings, Eye } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useEmailSettings } from "@/hooks/useEmailSettings";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 export const EmailConfig = () => {
-  const { toast } = useToast();
+  const { settings, emailHistory, loading, saveSettings } = useEmailSettings();
+  const { user } = useAuth();
+  
   const [emailEnabled, setEmailEnabled] = useState(true);
-  const [emailAddress, setEmailAddress] = useState('user@example.com');
+  const [emailAddress, setEmailAddress] = useState('');
   const [maxArticles, setMaxArticles] = useState(10);
-  const [emailFormat, setEmailFormat] = useState('html');
+  const [emailFormat, setEmailFormat] = useState<'html' | 'text'>('html');
   const [customSubject, setCustomSubject] = useState('RSS News Daily Digest - {date}');
 
-  const saveConfig = () => {
-    toast({
-      title: "Configurazione salvata",
-      description: "Le impostazioni email sono state aggiornate con successo"
+  useEffect(() => {
+    if (settings) {
+      setEmailEnabled(settings.email_enabled);
+      setEmailAddress(settings.email_address);
+      setMaxArticles(settings.max_articles_per_email);
+      setEmailFormat(settings.email_format);
+      setCustomSubject(settings.email_subject_template);
+    } else if (user) {
+      setEmailAddress(user.email || '');
+    }
+  }, [settings, user]);
+
+  const handleSaveConfig = async () => {
+    const success = await saveSettings({
+      email_enabled: emailEnabled,
+      email_address: emailAddress,
+      max_articles_per_email: maxArticles,
+      email_format: emailFormat,
+      email_subject_template: customSubject
     });
   };
 
   const sendTestEmail = () => {
-    toast({
-      title: "Email di test inviata",
-      description: `Email di test inviata a ${emailAddress}`
-    });
+    // TODO: Implementare invio email di test
+    console.log('Invio email di test a:', emailAddress);
   };
 
   const previewEmail = () => {
-    toast({
-      title: "Anteprima generata",
-      description: "Anteprima dell'email mostrata di seguito"
-    });
+    // TODO: Implementare anteprima email
+    console.log('Generazione anteprima email');
   };
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Caricamento impostazioni email...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -87,7 +115,7 @@ export const EmailConfig = () => {
                     min="1"
                     max="50"
                     value={maxArticles}
-                    onChange={(e) => setMaxArticles(parseInt(e.target.value))}
+                    onChange={(e) => setMaxArticles(parseInt(e.target.value) || 10)}
                   />
                 </div>
               </div>
@@ -113,7 +141,7 @@ export const EmailConfig = () => {
                       type="radio"
                       value="html"
                       checked={emailFormat === 'html'}
-                      onChange={(e) => setEmailFormat(e.target.value)}
+                      onChange={(e) => setEmailFormat(e.target.value as 'html' | 'text')}
                     />
                     <span>HTML</span>
                   </label>
@@ -122,7 +150,7 @@ export const EmailConfig = () => {
                       type="radio"
                       value="text"
                       checked={emailFormat === 'text'}
-                      onChange={(e) => setEmailFormat(e.target.value)}
+                      onChange={(e) => setEmailFormat(e.target.value as 'html' | 'text')}
                     />
                     <span>Testo</span>
                   </label>
@@ -130,7 +158,7 @@ export const EmailConfig = () => {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button onClick={saveConfig}>
+                <Button onClick={handleSaveConfig}>
                   <Settings className="h-4 w-4 mr-2" />
                   Salva Configurazione
                 </Button>
@@ -152,36 +180,44 @@ export const EmailConfig = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Storico Email
+            Storico Email ({emailHistory.length})
           </CardTitle>
           <CardDescription>
             Ultime email inviate dal sistema
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {[
-              { date: '15/06/2025 18:00', articoli: 8, status: 'inviata' },
-              { date: '14/06/2025 18:00', articoli: 12, status: 'inviata' },
-              { date: '13/06/2025 18:00', articoli: 6, status: 'inviata' },
-              { date: '12/06/2025 18:00', articoli: 9, status: 'fallita' },
-              { date: '11/06/2025 18:00', articoli: 15, status: 'inviata' }
-            ].map((email, index) => (
-              <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{email.date}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {email.articoli} articoli inclusi
-                  </p>
+          {emailHistory.length === 0 ? (
+            <div className="text-center py-8">
+              <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
+                Nessuna email inviata ancora. Lo storico apparirà qui quando il sistema inizierà a inviare le email.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {emailHistory.map((email) => (
+                <div key={email.id} className="flex justify-between items-center p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">
+                      {new Date(email.sent_at).toLocaleString('it-IT')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {email.articles_count} articoli inclusi • {email.recipient_email}
+                    </p>
+                    {email.error_message && (
+                      <p className="text-xs text-destructive">{email.error_message}</p>
+                    )}
+                  </div>
+                  <Badge 
+                    variant={email.status === 'sent' ? 'default' : 'destructive'}
+                  >
+                    {email.status === 'sent' ? 'Inviata' : 'Fallita'}
+                  </Badge>
                 </div>
-                <Badge 
-                  variant={email.status === 'inviata' ? 'default' : 'destructive'}
-                >
-                  {email.status}
-                </Badge>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

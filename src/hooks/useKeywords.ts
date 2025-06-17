@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react'
 import { supabase, Keyword, isSupabaseConfigured } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
@@ -17,11 +18,12 @@ export const useKeywords = () => {
       const { data, error } = await supabase
         .from('keywords')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('parola', { ascending: true })
 
       if (error) throw error
       setKeywords(data || [])
     } catch (error: any) {
+      console.error('Error fetching keywords:', error)
       toast({
         title: 'Errore',
         description: 'Impossibile caricare le keywords',
@@ -43,6 +45,9 @@ export const useKeywords = () => {
     }
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Utente non autenticato')
+
       const normalizedKeyword = parola.toLowerCase().trim()
       
       // Check if keyword already exists
@@ -58,7 +63,11 @@ export const useKeywords = () => {
 
       const { data, error } = await supabase
         .from('keywords')
-        .insert([{ parola: normalizedKeyword, attiva: true }])
+        .insert([{ 
+          parola: normalizedKeyword, 
+          attiva: true, 
+          user_id: user.id 
+        }])
         .select()
         .single()
 
@@ -71,6 +80,7 @@ export const useKeywords = () => {
       })
       return true
     } catch (error: any) {
+      console.error('Error adding keyword:', error)
       toast({
         title: 'Errore',
         description: error.message,
@@ -80,7 +90,7 @@ export const useKeywords = () => {
     }
   }
 
-  const removeKeyword = async (id: number) => {
+  const removeKeyword = async (id: string) => {
     if (!supabase) return
 
     try {
@@ -98,6 +108,7 @@ export const useKeywords = () => {
         description: `"${keyword?.parola}" è stata rimossa dalla lista`
       })
     } catch (error: any) {
+      console.error('Error removing keyword:', error)
       toast({
         title: 'Errore',
         description: error.message,
@@ -106,7 +117,7 @@ export const useKeywords = () => {
     }
   }
 
-  const toggleKeyword = async (id: number, attiva: boolean) => {
+  const toggleKeyword = async (id: string, attiva: boolean) => {
     if (!supabase) return
 
     try {
@@ -121,6 +132,7 @@ export const useKeywords = () => {
         keyword.id === id ? { ...keyword, attiva } : keyword
       ))
     } catch (error: any) {
+      console.error('Error toggling keyword:', error)
       toast({
         title: 'Errore',
         description: error.message,

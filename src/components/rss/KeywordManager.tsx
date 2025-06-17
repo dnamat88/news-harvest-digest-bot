@@ -6,61 +6,47 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Search, Tag } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useKeywords } from "@/hooks/useKeywords";
 
 export const KeywordManager = () => {
-  const { toast } = useToast();
+  const { keywords, loading, addKeyword, removeKeyword, toggleKeyword } = useKeywords();
   const [newKeyword, setNewKeyword] = useState('');
   const [testText, setTestText] = useState('');
-  const [keywords, setKeywords] = useState([
-    'banca', 'credito', 'bce', 'fed', 'tasso', 'carte', 'mutuo', 
-    'conti', 'risparmio', 'loyalty', 'fintech', 'startup', 'investimenti'
-  ]);
 
-  const addKeyword = () => {
-    if (!newKeyword.trim()) {
-      toast({
-        title: "Errore",
-        description: "Inserisci una keyword valida",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (keywords.includes(newKeyword.toLowerCase())) {
-      toast({
-        title: "Errore",
-        description: "Questa keyword esiste già",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setKeywords([...keywords, newKeyword.toLowerCase()]);
-    setNewKeyword('');
+  const handleAddKeyword = async () => {
+    if (!newKeyword.trim()) return;
     
-    toast({
-      title: "Keyword aggiunta",
-      description: `"${newKeyword}" è stata aggiunta alla lista`
-    });
-  };
-
-  const removeKeyword = (keyword: string) => {
-    setKeywords(keywords.filter(k => k !== keyword));
-    toast({
-      title: "Keyword rimossa",
-      description: `"${keyword}" è stata rimossa dalla lista`
-    });
+    const success = await addKeyword(newKeyword.toLowerCase());
+    if (success) {
+      setNewKeyword('');
+    }
   };
 
   const testKeywords = () => {
     if (!testText.trim()) return [];
     
     const text = testText.toLowerCase();
-    return keywords.filter(keyword => text.includes(keyword));
+    return keywords
+      .filter(keyword => keyword.attiva && text.includes(keyword.parola))
+      .map(keyword => keyword.parola);
   };
 
   const matchedKeywords = testKeywords();
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground mt-2">Caricamento keywords...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -83,11 +69,11 @@ export const KeywordManager = () => {
                 placeholder="es. blockchain"
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && addKeyword()}
+                onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
               />
             </div>
             <div className="flex items-end">
-              <Button onClick={addKeyword}>
+              <Button onClick={handleAddKeyword} disabled={!newKeyword.trim()}>
                 <Plus className="h-4 w-4 mr-2" />
                 Aggiungi
               </Button>
@@ -107,23 +93,36 @@ export const KeywordManager = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {keywords.map((keyword) => (
-              <Badge 
-                key={keyword} 
-                variant="secondary" 
-                className="text-sm py-1 px-3 flex items-center gap-2"
-              >
-                {keyword}
-                <button
-                  onClick={() => removeKeyword(keyword)}
-                  className="hover:text-destructive transition-colors"
+          {keywords.length === 0 ? (
+            <div className="text-center py-8">
+              <Tag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">
+                Nessuna keyword configurata. Aggiungi la prima keyword per iniziare a filtrare gli articoli.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {keywords.map((keyword) => (
+                <Badge 
+                  key={keyword.id} 
+                  variant={keyword.attiva ? "default" : "secondary"}
+                  className="text-sm py-1 px-3 flex items-center gap-2 cursor-pointer"
+                  onClick={() => toggleKeyword(keyword.id, !keyword.attiva)}
                 >
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-          </div>
+                  {keyword.parola}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeKeyword(keyword.id);
+                    }}
+                    className="hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
