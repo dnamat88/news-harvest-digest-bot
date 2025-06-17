@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react'
-import { supabase, Keyword } from '@/lib/supabase'
+import { supabase, Keyword, isSupabaseConfigured } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
 
 export const useKeywords = () => {
@@ -9,6 +8,11 @@ export const useKeywords = () => {
   const { toast } = useToast()
 
   const fetchKeywords = async () => {
+    if (!isSupabaseConfigured() || !supabase) {
+      setLoading(false)
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('keywords')
@@ -29,6 +33,15 @@ export const useKeywords = () => {
   }
 
   const addKeyword = async (parola: string) => {
+    if (!supabase) {
+      toast({
+        title: 'Errore',
+        description: 'Supabase non configurato',
+        variant: 'destructive'
+      })
+      return false
+    }
+
     try {
       const normalizedKeyword = parola.toLowerCase().trim()
       
@@ -68,6 +81,8 @@ export const useKeywords = () => {
   }
 
   const removeKeyword = async (id: number) => {
+    if (!supabase) return
+
     try {
       const keyword = keywords.find(k => k.id === id)
       const { error } = await supabase
@@ -92,6 +107,8 @@ export const useKeywords = () => {
   }
 
   const toggleKeyword = async (id: number, attiva: boolean) => {
+    if (!supabase) return
+
     try {
       const { error } = await supabase
         .from('keywords')

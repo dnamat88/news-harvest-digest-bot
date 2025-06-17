@@ -1,6 +1,5 @@
-
 import { useState, useEffect } from 'react'
-import { supabase, Feed } from '@/lib/supabase'
+import { supabase, Feed, isSupabaseConfigured } from '@/lib/supabase'
 import { useToast } from '@/hooks/use-toast'
 
 export const useFeeds = () => {
@@ -9,6 +8,11 @@ export const useFeeds = () => {
   const { toast } = useToast()
 
   const fetchFeeds = async () => {
+    if (!isSupabaseConfigured() || !supabase) {
+      setLoading(false)
+      return
+    }
+
     try {
       const { data, error } = await supabase
         .from('feeds')
@@ -29,6 +33,15 @@ export const useFeeds = () => {
   }
 
   const addFeed = async (url: string, nome: string) => {
+    if (!supabase) {
+      toast({
+        title: 'Errore',
+        description: 'Supabase non configurato',
+        variant: 'destructive'
+      })
+      return false
+    }
+
     try {
       const { data, error } = await supabase
         .from('feeds')
@@ -60,6 +73,8 @@ export const useFeeds = () => {
   }
 
   const removeFeed = async (id: number) => {
+    if (!supabase) return
+
     try {
       const { error } = await supabase
         .from('feeds')
@@ -83,6 +98,8 @@ export const useFeeds = () => {
   }
 
   const toggleFeed = async (id: number, attivo: boolean) => {
+    if (!supabase) return
+
     try {
       const { error } = await supabase
         .from('feeds')

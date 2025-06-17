@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { SupabaseSetup } from "@/components/auth/SupabaseSetup";
 import { Header } from "@/components/layout/Header";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -13,7 +14,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, isConfigured } = useAuth();
 
   if (loading) {
     return (
@@ -24,6 +25,10 @@ const AppContent = () => {
         </div>
       </div>
     );
+  }
+
+  if (!isConfigured) {
+    return <SupabaseSetup />;
   }
 
   if (!user) {
