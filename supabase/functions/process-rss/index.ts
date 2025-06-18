@@ -23,33 +23,59 @@ const supabase = createClient(
 async function parseRSSFeed(url: string): Promise<RSSItem[]> {
   try {
     console.log(`Fetching RSS feed: ${url}`);
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'RSS-Banking-News-Bot/1.0'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const text = await response.text();
+    console.log(`Received ${text.length} characters from RSS feed`);
     
-    // Parse XML usando DOMParser
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(text, 'application/xml');
-    
-    const items = doc.querySelectorAll('item');
+    // Usa una regex per estrarre i dati RSS invece di DOMParser
     const rssItems: RSSItem[] = [];
     
-    items.forEach(item => {
-      const title = item.querySelector('title')?.textContent || '';
-      const link = item.querySelector('link')?.textContent || '';
-      const pubDate = item.querySelector('pubDate')?.textContent || '';
-      const description = item.querySelector('description')?.textContent || '';
-      const content = item.querySelector('content\\:encoded')?.textContent || description;
+    // Trova tutti gli elementi <item>
+    const itemRegex = /<item[^>]*>([\s\S]*?)<\/item>/gi;
+    let itemMatch;
+    
+    while ((itemMatch = itemRegex.exec(text)) !== null) {
+      const itemContent = itemMatch[1];
+      
+      // Estrai title
+      const titleMatch = /<title[^>]*><!\[CDATA\[(.*?)\]\]><\/title>|<title[^>]*>(.*?)<\/title>/i.exec(itemContent);
+      const title = (titleMatch?.[1] || titleMatch?.[2] || '').trim();
+      
+      // Estrai link
+      const linkMatch = /<link[^>]*>(.*?)<\/link>/i.exec(itemContent);
+      const link = (linkMatch?.[1] || '').trim();
+      
+      // Estrai pubDate
+      const pubDateMatch = /<pubDate[^>]*>(.*?)<\/pubDate>/i.exec(itemContent);
+      const pubDate = (pubDateMatch?.[1] || '').trim();
+      
+      // Estrai description
+      const descMatch = /<description[^>]*><!\[CDATA\[(.*?)\]\]><\/description>|<description[^>]*>(.*?)<\/description>/i.exec(itemContent);
+      const description = (descMatch?.[1] || descMatch?.[2] || '').trim();
+      
+      // Estrai content:encoded se presente
+      const contentMatch = /<content:encoded[^>]*><!\[CDATA\[(.*?)\]\]><\/content:encoded>/i.exec(itemContent);
+      const content = (contentMatch?.[1] || description).trim();
       
       if (title && link) {
         rssItems.push({
-          title: title.trim(),
-          link: link.trim(),
-          pubDate: pubDate.trim(),
-          description: description.trim(),
-          content: content.trim()
+          title: title.replace(/<[^>]*>/g, ''), // Rimuovi tag HTML dal titolo
+          link: link,
+          pubDate: pubDate,
+          description: description.replace(/<[^>]*>/g, ''), // Rimuovi tag HTML
+          content: content.replace(/<[^>]*>/g, '') // Rimuovi tag HTML
         });
       }
-    });
+    }
     
     console.log(`Parsed ${rssItems.length} items from RSS feed`);
     return rssItems;

@@ -115,6 +115,11 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Starting email send process for user: ${userId}, test: ${isTest}`);
 
+    // Verifica che la chiave API di Resend sia configurata
+    if (!Deno.env.get('RESEND_API_KEY')) {
+      throw new Error('RESEND_API_KEY non configurata');
+    }
+
     // Ottieni impostazioni utente
     const { data: settings, error: settingsError } = await supabase
       .from('user_settings')
@@ -122,7 +127,11 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (settingsError) throw settingsError;
+    if (settingsError) {
+      console.error('Errore recupero impostazioni:', settingsError);
+      throw settingsError;
+    }
+
     if (!settings || !settings.email_enabled) {
       return new Response(JSON.stringify({ 
         success: false, 
@@ -134,23 +143,56 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Email settings found for user: ${settings.email_address}`);
 
-    // Ottieni articoli recenti (ultimi 7 giorni)
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    // Ottieni articoli recenti (ultimi 7 giorni) o crea articoli di esempio per il test
+    let articles: Article[] = [];
     
-    const { data: articles, error: articlesError } = await supabase
-      .from('articoli')
-      .select('*')
-      .eq('user_id', userId)
-      .gte('data_pubblicazione', weekAgo.toISOString())
-      .order('data_pubblicazione', { ascending: false })
-      .limit(settings.max_articles_per_email);
+    if (isTest) {
+      // Per il test, crea alcuni articoli di esempio
+      articles = [
+        {
+          id: '1',
+          titolo: 'Test: Nuove regolamentazioni bancarie in arrivo',
+          link: 'https://example.com/articolo-1',
+          data_pubblicazione: new Date().toISOString(),
+          fonte: 'Test Source',
+          sommario: 'Questo è un articolo di test per verificare il funzionamento del sistema di invio email. Le nuove regolamentazioni entreranno in vigore il prossimo anno.',
+          matched_keywords: ['banca', 'regolamentazioni']
+        },
+        {
+          id: '2',
+          titolo: 'Test: Analisi dei tassi di interesse',
+          link: 'https://example.com/articolo-2',
+          data_pubblicazione: new Date().toISOString(),
+          fonte: 'Test Financial',
+          sommario: 'Un altro articolo di test che analizza l\'andamento dei tassi di interesse nel mercato bancario italiano.',
+          matched_keywords: ['tassi', 'interesse', 'banca']
+        }
+      ];
+      console.log('Using test articles for email');
+    } else {
+      // Per l'invio normale, ottieni articoli reali
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      
+      const { data: realArticles, error: articlesError } = await supabase
+        .from('articoli')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('data_pubblicazione', weekAgo.toISOString())
+        .order('data_pubblicazione', { ascending: false })
+        .limit(settings.max_articles_per_email);
 
-    if (articlesError) throw articlesError;
+      if (articlesError) {
+        console.error('Errore recupero articoli:', articlesError);
+        throw articlesError;
+      }
 
-    console.log(`Found ${articles?.length || 0} articles to include in email`);
+      articles = realArticles || [];
+      console.log(`Found ${articles.length} real articles to include in email`);
+    }
 
-    if (!articles || articles.length === 0) {
+    // Se non ci sono articoli neanche per il test, usa un messaggio di default
+    if (articles.length === 0 && !isTest) {
       console.log('No articles found, skipping email send');
       return new Response(JSON.stringify({ 
         success: true, 
@@ -170,9 +212,9 @@ const handler = async (req: Request): Promise<Response> => {
       ? generateEmailHTML(articles, settings)
       : generateEmailText(articles, settings);
 
-    // Invia email
+    // Configura email usando il dominio sandbox di Resend per il test
     const emailData: any = {
-      from: 'RSS Banking News <noreply@lovable.app>',
+      from: 'RSS Banking News <onboarding@resend.dev>',
       to: [settings.email_address],
       subject: isTest ? `[TEST] ${subject}` : subject,
     };
@@ -183,10 +225,17 @@ const handler = async (req: Request): Promise<Response> => {
       emailData.text = emailContent;
     }
 
-    console.log('Sending email via Resend...');
+    console.log('Sending email via Resend...', {
+      to: emailData.to,
+      subject: emailData.subject,
+      contentLength: emailContent.length
+    });
+
+    // Invia email
     const emailResponse = await resend.emails.send(emailData);
 
     if (emailResponse.error) {
+      console.error('Resend error:', emailResponse.error);
       throw new Error(`Resend error: ${emailResponse.error.message}`);
     }
 
@@ -210,7 +259,8 @@ const handler = async (req: Request): Promise<Response> => {
       success: true,
       message: `Email inviata con successo a ${settings.email_address}`,
       articlesCount: articles.length,
-      emailId: emailResponse.data?.id
+      emailId: emailResponse.data?.id,
+      isTest: isTest
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
