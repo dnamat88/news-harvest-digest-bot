@@ -8,6 +8,7 @@ import { ArticlesList } from "@/components/rss/ArticlesList";
 import { SystemStats } from "@/components/rss/SystemStats";
 import { EmailConfig } from "@/components/rss/EmailConfig";
 import { ScheduleConfig } from "@/components/rss/ScheduleConfig";
+import { SystemTest } from "@/components/rss/SystemTest";
 
 const Dashboard = () => {
   return (
@@ -21,12 +22,13 @@ const Dashboard = () => {
         </div>
 
         <Tabs defaultValue="monitor" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="monitor">Monitoraggio</TabsTrigger>
             <TabsTrigger value="feeds">Feed RSS</TabsTrigger>
             <TabsTrigger value="keywords">Keywords</TabsTrigger>
             <TabsTrigger value="schedule">Pianificazione</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
+            <TabsTrigger value="test">Test Sistema</TabsTrigger>
           </TabsList>
 
           <TabsContent value="monitor" className="space-y-6">
@@ -48,6 +50,10 @@ const Dashboard = () => {
 
           <TabsContent value="email" className="space-y-6">
             <EmailConfig />
+          </TabsContent>
+
+          <TabsContent value="test" className="space-y-6">
+            <SystemTest />
           </TabsContent>
         </Tabs>
       </div>

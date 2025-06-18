@@ -6,19 +6,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Mail, Send, Settings, Eye } from "lucide-react";
+import { Mail, Send, Settings, Eye, Play } from "lucide-react";
 import { useEmailSettings } from "@/hooks/useEmailSettings";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
 
 export const EmailConfig = () => {
   const { settings, emailHistory, loading, saveSettings } = useEmailSettings();
   const { user } = useAuth();
+  const { toast } = useToast();
   
   const [emailEnabled, setEmailEnabled] = useState(true);
   const [emailAddress, setEmailAddress] = useState('');
   const [maxArticles, setMaxArticles] = useState(10);
   const [emailFormat, setEmailFormat] = useState<'html' | 'text'>('html');
   const [customSubject, setCustomSubject] = useState('RSS News Daily Digest - {date}');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [isProcessingRss, setIsProcessingRss] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -42,14 +47,72 @@ export const EmailConfig = () => {
     });
   };
 
-  const sendTestEmail = () => {
-    // TODO: Implementare invio email di test
-    console.log('Invio email di test a:', emailAddress);
+  const sendTestEmail = async () => {
+    if (!user) {
+      toast({
+        title: 'Errore',
+        description: 'Utente non autenticato',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsTestingEmail(true);
+    try {
+      console.log('Invio email di test...');
+      const { data, error } = await supabase.functions.invoke('test-email', {
+        body: { userId: user.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Email di test inviata',
+        description: data.message || 'Email di test inviata con successo',
+      });
+
+    } catch (error: any) {
+      console.error('Errore invio email di test:', error);
+      toast({
+        title: 'Errore invio email',
+        description: error.message || 'Errore durante l\'invio dell\'email di test',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  const processRssNow = async () => {
+    setIsProcessingRss(true);
+    try {
+      console.log('Avvio elaborazione RSS...');
+      const { data, error } = await supabase.functions.invoke('process-rss');
+
+      if (error) throw error;
+
+      toast({
+        title: 'RSS elaborato',
+        description: `Trovati ${data.articlesFound} articoli, filtrati ${data.articlesFiltered}`,
+      });
+
+    } catch (error: any) {
+      console.error('Errore elaborazione RSS:', error);
+      toast({
+        title: 'Errore elaborazione RSS',
+        description: error.message || 'Errore durante l\'elaborazione RSS',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsProcessingRss(false);
+    }
   };
 
   const previewEmail = () => {
-    // TODO: Implementare anteprima email
-    console.log('Generazione anteprima email');
+    toast({
+      title: 'Anteprima Email',
+      description: 'Funzione anteprima in sviluppo - per ora usa il test email',
+    });
   };
 
   if (loading) {
@@ -157,18 +220,38 @@ export const EmailConfig = () => {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 flex-wrap">
                 <Button onClick={handleSaveConfig}>
                   <Settings className="h-4 w-4 mr-2" />
                   Salva Configurazione
                 </Button>
-                <Button variant="outline" onClick={sendTestEmail}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Invia Test
+                <Button 
+                  variant="outline" 
+                  onClick={sendTestEmail}
+                  disabled={isTestingEmail}
+                >
+                  {isTestingEmail ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  ) : (
+                    <Send className="h-4 w-4 mr-2" />
+                  )}
+                  {isTestingEmail ? 'Invio...' : 'Invia Test'}
                 </Button>
                 <Button variant="outline" onClick={previewEmail}>
                   <Eye className="h-4 w-4 mr-2" />
                   Anteprima
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={processRssNow}
+                  disabled={isProcessingRss}
+                >
+                  {isProcessingRss ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  {isProcessingRss ? 'Elaborazione...' : 'Elabora RSS Ora'}
                 </Button>
               </div>
             </>
