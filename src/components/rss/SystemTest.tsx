@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Mail, Rss, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Play, Mail, Rss, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { supabase } from "@/lib/supabase";
@@ -51,7 +51,8 @@ export const SystemTest = () => {
       // Test 1: Verifica connessione database
       updateTestResult('Database', 'pending', 'Verifica connessione...');
       try {
-        const { data: feeds } = await supabase.from('feeds').select('count').single();
+        const { data: feeds, error } = await supabase.from('feeds').select('count').single();
+        if (error) throw error;
         updateTestResult('Database', 'success', 'Connessione database OK');
       } catch (error) {
         updateTestResult('Database', 'error', 'Errore connessione database', error);
@@ -60,7 +61,9 @@ export const SystemTest = () => {
       // Test 2: Verifica feed configurati
       updateTestResult('Feeds', 'pending', 'Verifica feed RSS...');
       try {
-        const { data: feeds } = await supabase.from('feeds').select('*').eq('attivo', true);
+        const { data: feeds, error } = await supabase.from('feeds').select('*').eq('attivo', true);
+        if (error) throw error;
+        
         if (!feeds || feeds.length === 0) {
           updateTestResult('Feeds', 'warning', 'Nessun feed RSS attivo configurato');
         } else {
@@ -73,7 +76,9 @@ export const SystemTest = () => {
       // Test 3: Verifica keywords
       updateTestResult('Keywords', 'pending', 'Verifica keywords...');
       try {
-        const { data: keywords } = await supabase.from('keywords').select('*').eq('attiva', true);
+        const { data: keywords, error } = await supabase.from('keywords').select('*').eq('attiva', true);
+        if (error) throw error;
+        
         if (!keywords || keywords.length === 0) {
           updateTestResult('Keywords', 'warning', 'Nessuna keyword attiva configurata');
         } else {
@@ -90,7 +95,7 @@ export const SystemTest = () => {
         if (error) throw error;
         
         updateTestResult('RSS Processing', 'success', 
-          `RSS elaborato: ${data.articlesFound} trovati, ${data.articlesFiltered} filtrati`, data);
+          `RSS elaborato: ${data.articlesFound || 0} trovati, ${data.articlesFiltered || 0} filtrati`, data);
       } catch (error: any) {
         updateTestResult('RSS Processing', 'error', 'Errore elaborazione RSS: ' + error.message, error);
       }
@@ -98,11 +103,13 @@ export const SystemTest = () => {
       // Test 5: Verifica impostazioni email
       updateTestResult('Email Settings', 'pending', 'Verifica impostazioni email...');
       try {
-        const { data: settings } = await supabase
+        const { data: settings, error } = await supabase
           .from('user_settings')
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
+        
+        if (error) throw error;
         
         if (!settings) {
           updateTestResult('Email Settings', 'warning', 'Impostazioni email non configurate');
@@ -124,14 +131,16 @@ export const SystemTest = () => {
         if (error) throw error;
         
         updateTestResult('Email Test', 'success', 'Email di test inviata con successo', data);
+        
+        toast({
+          title: 'Test completato con successo!',
+          description: 'Email di test inviata. Controlla la tua casella email.',
+        });
+        
       } catch (error: any) {
+        console.error('Errore invio email:', error);
         updateTestResult('Email Test', 'error', 'Errore invio email: ' + error.message, error);
       }
-
-      toast({
-        title: 'Test completato',
-        description: 'Test del sistema completato. Controlla i risultati per dettagli.',
-      });
 
     } catch (error: any) {
       console.error('Errore durante i test:', error);
@@ -143,6 +152,51 @@ export const SystemTest = () => {
     } finally {
       setIsRunning(false);
     }
+  };
+
+  const runSingleTest = async (testName: string) => {
+    if (!user) return;
+
+    setIsRunning(true);
+    
+    switch (testName) {
+      case 'Email Test':
+        updateTestResult('Email Test', 'pending', 'Test invio email...');
+        try {
+          const { data, error } = await supabase.functions.invoke('test-email', {
+            body: { userId: user.id }
+          });
+          if (error) throw error;
+          
+          updateTestResult('Email Test', 'success', 'Email di test inviata con successo', data);
+          toast({
+            title: 'Email di test inviata!',
+            description: 'Controlla la tua casella email.',
+          });
+        } catch (error: any) {
+          updateTestResult('Email Test', 'error', 'Errore invio email: ' + error.message, error);
+        }
+        break;
+        
+      case 'RSS Processing':
+        updateTestResult('RSS Processing', 'pending', 'Test elaborazione RSS...');
+        try {
+          const { data, error } = await supabase.functions.invoke('process-rss');
+          if (error) throw error;
+          
+          updateTestResult('RSS Processing', 'success', 
+            `RSS elaborato: ${data.articlesFound || 0} trovati, ${data.articlesFiltered || 0} filtrati`, data);
+          toast({
+            title: 'RSS elaborato con successo!',
+            description: `Trovati ${data.articlesFound || 0} articoli, filtrati ${data.articlesFiltered || 0}`,
+          });
+        } catch (error: any) {
+          updateTestResult('RSS Processing', 'error', 'Errore elaborazione RSS: ' + error.message, error);
+        }
+        break;
+    }
+    
+    setIsRunning(false);
   };
 
   const getStatusIcon = (status: TestResult['status']) => {
@@ -208,15 +262,28 @@ export const SystemTest = () => {
             <div className="space-y-2">
               {testResults.map((result) => (
                 <div key={result.name} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1">
                     {getStatusIcon(result.status)}
-                    <div>
-                      <p className="font-medium">{result.name}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{result.name}</p>
+                        {(result.name === 'Email Test' || result.name === 'RSS Processing') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => runSingleTest(result.name)}
+                            disabled={isRunning}
+                            className="h-6 px-2"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">{result.message}</p>
                       {result.details && (
                         <details className="text-xs text-muted-foreground mt-1">
                           <summary className="cursor-pointer">Dettagli</summary>
-                          <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto">
+                          <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-auto max-h-32">
                             {JSON.stringify(result.details, null, 2)}
                           </pre>
                         </details>
@@ -240,6 +307,7 @@ export const SystemTest = () => {
             <li>• Configura le impostazioni email prima di testare l'invio</li>
             <li>• Il test RSS cercherà nuovi articoli e li filtrerà con le tue keywords</li>
             <li>• L'email di test includerà gli articoli trovati di recente</li>
+            <li>• ✅ Chiave API Resend ora configurata correttamente</li>
           </ul>
         </div>
       </CardContent>
