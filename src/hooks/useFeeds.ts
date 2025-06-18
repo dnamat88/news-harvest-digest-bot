@@ -18,7 +18,7 @@ export const useFeeds = () => {
       const { data, error } = await supabase
         .from('feeds')
         .select('*')
-        .order('ultimo_aggiornamento', { ascending: false, nullsLast: true })
+        .order('ultimo_aggiornamento', { ascending: false, nullsFirst: false })
 
       if (error) throw error
       setFeeds(data || [])
