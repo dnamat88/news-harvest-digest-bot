@@ -15,9 +15,9 @@ const Dashboard = () => {
     <div className="bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold">Dashboard RSS Banking News</h1>
+          <h1 className="text-4xl font-bold">Dashboard RSS Feed Tailor Made</h1>
           <p className="text-muted-foreground text-lg">
-            Gestisci e monitora il sistema di raccolta notizie automatizzato
+            Gestisci e monitora il sistema di raccolta notizie personalizzato
           </p>
         </div>
 

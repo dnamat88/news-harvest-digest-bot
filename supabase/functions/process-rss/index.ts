@@ -1,4 +1,5 @@
 
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 
@@ -25,7 +26,7 @@ async function parseRSSFeed(url: string): Promise<RSSItem[]> {
     console.log(`Fetching RSS feed: ${url}`);
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'RSS-Banking-News-Bot/1.0'
+        'User-Agent': 'RSS-Feed-Tailor-Made-Bot/1.0'
       }
     });
     
@@ -141,7 +142,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log('Created execution log:', executionLog.id);
 
     let totalArticlesFound = 0;
-    let totalArticlesFiltered = 0;
+    let totalArticlesSaved = 0;
 
     // Processa ogni feed
     for (const feed of feeds || []) {
@@ -163,33 +164,31 @@ const handler = async (req: Request): Promise<Response> => {
             continue;
           }
 
-          // Controlla match con keywords
+          // Controlla match con keywords - TUTTI gli articoli vengono salvati
           const fullText = `${item.title} ${item.description} ${item.content || ''}`;
           const matchedKeywords = matchesKeywords(fullText, keywordList);
 
-          if (matchedKeywords.length > 0) {
-            console.log(`Article matches keywords:`, matchedKeywords);
-            
-            // Salva articolo
-            const { error: articleError } = await supabase
-              .from('articoli')
-              .insert([{
-                titolo: item.title,
-                link: item.link,
-                data_pubblicazione: item.pubDate || new Date().toISOString(),
-                fonte: feed.nome,
-                sommario: item.description.substring(0, 500),
-                categoria: 'Banking News',
-                matched_keywords: matchedKeywords,
-                user_id: feed.user_id
-              }]);
+          // Salva TUTTI gli articoli, non solo quelli con keywords
+          console.log(`Saving article: ${item.title} (Keywords: ${matchedKeywords.join(', ') || 'None'})`);
+          
+          const { error: articleError } = await supabase
+            .from('articoli')
+            .insert([{
+              titolo: item.title,
+              link: item.link,
+              data_pubblicazione: item.pubDate || new Date().toISOString(),
+              fonte: feed.nome,
+              sommario: item.description.substring(0, 500),
+              categoria: 'Feed News',
+              matched_keywords: matchedKeywords,
+              user_id: feed.user_id
+            }]);
 
-            if (articleError) {
-              console.error('Error saving article:', articleError);
-            } else {
-              totalArticlesFiltered++;
-              console.log(`Saved article: ${item.title}`);
-            }
+          if (articleError) {
+            console.error('Error saving article:', articleError);
+          } else {
+            totalArticlesSaved++;
+            console.log(`Saved article: ${item.title}`);
           }
         }
 
@@ -211,16 +210,16 @@ const handler = async (req: Request): Promise<Response> => {
         completed_at: new Date().toISOString(),
         status: 'completed',
         articles_found: totalArticlesFound,
-        articles_filtered: totalArticlesFiltered
+        articles_filtered: totalArticlesSaved
       })
       .eq('id', executionLog.id);
 
-    console.log(`RSS processing completed. Found: ${totalArticlesFound}, Filtered: ${totalArticlesFiltered}`);
+    console.log(`RSS processing completed. Found: ${totalArticlesFound}, Saved: ${totalArticlesSaved}`);
 
     return new Response(JSON.stringify({
       success: true,
       articlesFound: totalArticlesFound,
-      articlesFiltered: totalArticlesFiltered,
+      articlesFiltered: totalArticlesSaved,
       executionLogId: executionLog.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -239,3 +238,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+

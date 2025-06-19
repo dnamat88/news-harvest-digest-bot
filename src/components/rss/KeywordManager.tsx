@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Search, Tag } from "lucide-react";
+import { Plus, Trash2, Search, Tag, Info } from "lucide-react";
 import { useKeywords } from "@/hooks/useKeywords";
 
 export const KeywordManager = () => {
@@ -50,6 +50,22 @@ export const KeywordManager = () => {
 
   return (
     <div className="space-y-6">
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <strong>Nuova logica Keywords:</strong> Le keywords non eliminano più gli articoli! 
+              Tutti gli articoli vengono salvati e le keywords servono solo per categorizzarli nell'email in:
+              <ul className="mt-2 list-disc list-inside space-y-1">
+                <li><strong>"Articoli con Keywords"</strong> - articoli che contengono le tue parole chiave</li>
+                <li><strong>"Altri Articoli"</strong> - tutti gli altri articoli interessanti</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -57,7 +73,7 @@ export const KeywordManager = () => {
             Aggiungi Keyword
           </CardTitle>
           <CardDescription>
-            Aggiungi nuove parole chiave per filtrare gli articoli
+            Aggiungi parole chiave per categorizzare gli articoli nella tua email
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -66,7 +82,7 @@ export const KeywordManager = () => {
               <Label htmlFor="newKeyword">Nuova Keyword</Label>
               <Input
                 id="newKeyword"
-                placeholder="es. blockchain"
+                placeholder="es. fintech, blockchain, banking"
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleAddKeyword()}
@@ -89,7 +105,7 @@ export const KeywordManager = () => {
             Keywords Configurate ({keywords.length})
           </CardTitle>
           <CardDescription>
-            Gestisci le parole chiave utilizzate per filtrare gli articoli
+            Gestisci le parole chiave per categorizzare gli articoli nell'email
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -97,7 +113,7 @@ export const KeywordManager = () => {
             <div className="text-center py-8">
               <Tag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">
-                Nessuna keyword configurata. Aggiungi la prima keyword per iniziare a filtrare gli articoli.
+                Nessuna keyword configurata. Aggiungi la prima keyword per iniziare a categorizzare gli articoli.
               </p>
             </div>
           ) : (
@@ -130,10 +146,10 @@ export const KeywordManager = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="h-5 w-5" />
-            Test Filtri
+            Test Categorizzazione
           </CardTitle>
           <CardDescription>
-            Testa se un testo verrebbe filtrato dalle keywords configurate
+            Testa come un articolo verrà categorizzato con le keywords configurate
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -150,9 +166,9 @@ export const KeywordManager = () => {
           {testText && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Risultato:</span>
-                <Badge variant={matchedKeywords.length > 0 ? "default" : "destructive"}>
-                  {matchedKeywords.length > 0 ? "Articolo Incluso" : "Articolo Escluso"}
+                <span className="text-sm font-medium">Categorizzazione:</span>
+                <Badge variant={matchedKeywords.length > 0 ? "default" : "secondary"}>
+                  {matchedKeywords.length > 0 ? "Articoli con Keywords" : "Altri Articoli"}
                 </Badge>
               </div>
               

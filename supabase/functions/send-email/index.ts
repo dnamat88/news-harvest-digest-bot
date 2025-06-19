@@ -1,7 +1,10 @@
 
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
 import { Resend } from "npm:resend@2.0.0";
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,95 +16,9 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
-
-interface Article {
-  id: string;
-  titolo: string;
-  link: string;
-  data_pubblicazione: string;
-  fonte: string;
-  sommario: string;
-  matched_keywords: string[];
-}
-
-function generateEmailHTML(articles: Article[], settings: any): string {
-  const date = new Date().toLocaleDateString('it-IT');
-  
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>RSS Banking News - ${date}</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-        .article { border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        .article-title { color: #2563eb; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
-        .article-meta { color: #6b7280; font-size: 14px; margin-bottom: 10px; }
-        .article-summary { margin-bottom: 15px; }
-        .keywords { margin-bottom: 10px; }
-        .keyword-tag { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-right: 5px; }
-        .read-more { color: #2563eb; text-decoration: none; font-weight: bold; }
-        .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #e9ecef; color: #6b7280; font-size: 14px; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>🏦 RSS Banking News - ${date}</h1>
-        <p>Il tuo riassunto giornaliero delle notizie bancarie e finanziarie</p>
-        <p><strong>${articles.length}</strong> articoli trovati corrispondenti alle tue keywords</p>
-      </div>
-      
-      ${articles.map(article => `
-        <div class="article">
-          <h2 class="article-title">${article.titolo}</h2>
-          <div class="article-meta">
-            📰 ${article.fonte} • 📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}
-          </div>
-          <div class="keywords">
-            ${article.matched_keywords.map(keyword => 
-              `<span class="keyword-tag">${keyword}</span>`
-            ).join('')}
-          </div>
-          <div class="article-summary">
-            ${article.sommario}
-          </div>
-          <a href="${article.link}" class="read-more" target="_blank">Leggi l'articolo completo →</a>
-        </div>
-      `).join('')}
-      
-      <div class="footer">
-        <p>Questa email è stata generata automaticamente dal sistema RSS Banking News.</p>
-        <p>Per modificare le tue preferenze, accedi al tuo dashboard.</p>
-      </div>
-    </body>
-    </html>
-  `;
-}
-
-function generateEmailText(articles: Article[], settings: any): string {
-  const date = new Date().toLocaleDateString('it-IT');
-  
-  let text = `RSS Banking News - ${date}\n\n`;
-  text += `Il tuo riassunto giornaliero delle notizie bancarie e finanziarie\n`;
-  text += `${articles.length} articoli trovati corrispondenti alle tue keywords\n\n`;
-  text += `${'='.repeat(60)}\n\n`;
-  
-  articles.forEach((article, index) => {
-    text += `${index + 1}. ${article.titolo}\n`;
-    text += `   Fonte: ${article.fonte}\n`;
-    text += `   Data: ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}\n`;
-    text += `   Keywords: ${article.matched_keywords.join(', ')}\n`;
-    text += `   ${article.sommario}\n`;
-    text += `   Link: ${article.link}\n\n`;
-    text += `${'-'.repeat(40)}\n\n`;
-  });
-  
-  text += `Questa email è stata generata automaticamente dal sistema RSS Banking News.`;
-  
-  return text;
+interface EmailRequest {
+  userId: string;
+  isTest?: boolean;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -110,15 +27,8 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const body = await req.json();
-    const { userId, isTest = false } = body;
-
+    const { userId, isTest = false }: EmailRequest = await req.json();
     console.log(`Starting email send process for user: ${userId}, test: ${isTest}`);
-
-    // Verifica che la chiave API di Resend sia configurata
-    if (!Deno.env.get('RESEND_API_KEY')) {
-      throw new Error('RESEND_API_KEY non configurata');
-    }
 
     // Ottieni impostazioni utente
     const { data: settings, error: settingsError } = await supabase
@@ -127,140 +37,211 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (settingsError) {
-      console.error('Errore recupero impostazioni:', settingsError);
-      throw settingsError;
-    }
-
-    if (!settings || !settings.email_enabled) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: 'Email non abilitata per questo utente' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (settingsError) throw settingsError;
+    if (!settings) {
+      throw new Error('User settings not found');
     }
 
     console.log(`Email settings found for user: ${settings.email_address}`);
 
-    // Ottieni articoli recenti (ultimi 7 giorni) o crea articoli di esempio per il test
-    let articles: Article[] = [];
+    let articles;
     
     if (isTest) {
-      // Per il test, crea alcuni articoli di esempio
+      console.log('Using test articles for email');
+      // Articoli di test per la demo
       articles = [
         {
-          id: '1',
-          titolo: 'Test: Nuove regolamentazioni bancarie in arrivo',
-          link: 'https://example.com/articolo-1',
+          titolo: "Test Article 1 - Crypto News",
+          link: "https://example.com/crypto-1",
           data_pubblicazione: new Date().toISOString(),
-          fonte: 'Test Source',
-          sommario: 'Questo è un articolo di test per verificare il funzionamento del sistema di invio email. Le nuove regolamentazioni entreranno in vigore il prossimo anno.',
-          matched_keywords: ['banca', 'regolamentazioni']
+          fonte: "Test Feed",
+          sommario: "This is a test article about cryptocurrency trends and market analysis.",
+          matched_keywords: ["crypto", "bitcoin"]
         },
         {
-          id: '2',
-          titolo: 'Test: Analisi dei tassi di interesse',
-          link: 'https://example.com/articolo-2',
+          titolo: "Test Article 2 - Banking Innovation",
+          link: "https://example.com/banking-1", 
           data_pubblicazione: new Date().toISOString(),
-          fonte: 'Test Financial',
-          sommario: 'Un altro articolo di test che analizza l\'andamento dei tassi di interesse nel mercato bancario italiano.',
-          matched_keywords: ['tassi', 'interesse', 'banca']
+          fonte: "Test Feed",
+          sommario: "This is a test article about new banking technologies and digital transformation.",
+          matched_keywords: ["banking", "fintech"]
+        },
+        {
+          titolo: "Test Article 3 - Market Update",
+          link: "https://example.com/market-1",
+          data_pubblicazione: new Date().toISOString(),
+          fonte: "Test Feed", 
+          sommario: "This is a test article with general market updates and economic news.",
+          matched_keywords: []
         }
       ];
-      console.log('Using test articles for email');
     } else {
-      // Per l'invio normale, ottieni articoli reali
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
+      // Ottieni articoli recenti dell'utente
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
       
-      const { data: realArticles, error: articlesError } = await supabase
+      const { data: userArticles, error: articlesError } = await supabase
         .from('articoli')
         .select('*')
         .eq('user_id', userId)
-        .gte('data_pubblicazione', weekAgo.toISOString())
+        .gte('data_pubblicazione', yesterday.toISOString())
         .order('data_pubblicazione', { ascending: false })
         .limit(settings.max_articles_per_email);
 
-      if (articlesError) {
-        console.error('Errore recupero articoli:', articlesError);
-        throw articlesError;
-      }
-
-      articles = realArticles || [];
-      console.log(`Found ${articles.length} real articles to include in email`);
+      if (articlesError) throw articlesError;
+      articles = userArticles || [];
     }
 
-    // Se non ci sono articoli neanche per il test, usa un messaggio di default
     if (articles.length === 0 && !isTest) {
-      console.log('No articles found, skipping email send');
+      console.log('No new articles found for user');
       return new Response(JSON.stringify({ 
         success: true, 
-        message: 'Nessun articolo trovato per l\'invio email',
-        articlesCount: 0 
+        message: 'No new articles to send' 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Genera contenuto email
-    const subject = settings.email_subject_template
-      .replace('{date}', new Date().toLocaleDateString('it-IT'))
-      .replace('{count}', articles.length.toString());
+    // Separa articoli per keywords e altri
+    const articlesWithKeywords = articles.filter(article => 
+      article.matched_keywords && article.matched_keywords.length > 0
+    );
+    const otherArticles = articles.filter(article => 
+      !article.matched_keywords || article.matched_keywords.length === 0
+    );
 
-    const emailContent = settings.email_format === 'html' 
-      ? generateEmailHTML(articles, settings)
-      : generateEmailText(articles, settings);
+    // Genera subject
+    const date = new Date().toLocaleDateString('it-IT');
+    const subject = (isTest ? '[TEST] ' : '') + 
+      settings.email_subject_template
+        .replace('{date}', date)
+        .replace('{count}', articles.length.toString());
 
-    // Configura email usando il dominio sandbox di Resend per il test
-    const emailData: any = {
-      from: 'RSS Banking News <onboarding@resend.dev>',
+    // Genera contenuto HTML
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>RSS Feed Tailor Made - Daily Digest</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+          .section { margin-bottom: 30px; }
+          .section-title { color: #495057; font-size: 20px; font-weight: bold; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; }
+          .article { background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+          .article-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
+          .article-title a { color: #495057; text-decoration: none; }
+          .article-title a:hover { color: #667eea; }
+          .article-meta { font-size: 14px; color: #6c757d; margin-bottom: 10px; }
+          .article-summary { font-size: 16px; line-height: 1.5; }
+          .keywords { margin-top: 10px; }
+          .keyword { background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; display: inline-block; }
+          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; color: #6c757d; font-size: 14px; }
+          .stats { background: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🎯 RSS Feed Tailor Made</h1>
+          <p>Il tuo digest personalizzato - ${date}</p>
+        </div>
+        
+        <div class="content">
+          <div class="stats">
+            <strong>${articles.length} articoli trovati</strong> • 
+            <strong>${articlesWithKeywords.length} con keywords</strong> • 
+            <strong>${otherArticles.length} altri</strong>
+          </div>
+
+          ${articlesWithKeywords.length > 0 ? `
+          <div class="section">
+            <h2 class="section-title">🎯 Articoli con Keywords (${articlesWithKeywords.length})</h2>
+            ${articlesWithKeywords.map(article => `
+              <div class="article">
+                <div class="article-title">
+                  <a href="${article.link}" target="_blank">${article.titolo}</a>
+                </div>
+                <div class="article-meta">
+                  📰 ${article.fonte} • 📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}
+                </div>
+                <div class="article-summary">${article.sommario}</div>
+                <div class="keywords">
+                  ${(article.matched_keywords || []).map(keyword => `<span class="keyword">${keyword}</span>`).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+
+          ${otherArticles.length > 0 ? `
+          <div class="section">
+            <h2 class="section-title">📰 Altri Articoli (${otherArticles.length})</h2>
+            ${otherArticles.map(article => `
+              <div class="article">
+                <div class="article-title">
+                  <a href="${article.link}" target="_blank">${article.titolo}</a>
+                </div>
+                <div class="article-meta">
+                  📰 ${article.fonte} • 📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}
+                </div>
+                <div class="article-summary">${article.sommario}</div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="footer">
+          <p>📧 Email generata automaticamente da RSS Feed Tailor Made</p>
+          <p>Configurazione: ${settings.max_articles_per_email} articoli max • Formato: ${settings.email_format}</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    console.log(`Sending email via Resend...`, {
       to: [settings.email_address],
-      subject: isTest ? `[TEST] ${subject}` : subject,
-    };
-
-    if (settings.email_format === 'html') {
-      emailData.html = emailContent;
-    } else {
-      emailData.text = emailContent;
-    }
-
-    console.log('Sending email via Resend...', {
-      to: emailData.to,
-      subject: emailData.subject,
-      contentLength: emailContent.length
+      subject,
+      contentLength: htmlContent.length
     });
 
     // Invia email
-    const emailResponse = await resend.emails.send(emailData);
+    const emailResult = await resend.emails.send({
+      from: 'RSS Feed Tailor Made <onboarding@resend.dev>',
+      to: [settings.email_address],
+      subject: subject,
+      html: htmlContent,
+    });
 
-    if (emailResponse.error) {
-      console.error('Resend error:', emailResponse.error);
-      throw new Error(`Resend error: ${emailResponse.error.message}`);
+    if (emailResult.error) {
+      throw new Error(`Resend error: ${emailResult.error.message}`);
     }
 
-    console.log('Email sent successfully:', emailResponse.data?.id);
+    console.log(`Email sent successfully: ${emailResult.data?.id}`);
 
-    // Salva nella cronologia email
-    const { error: historyError } = await supabase
+    // Salva nel log email
+    const { error: logError } = await supabase
       .from('email_history')
       .insert([{
         recipient_email: settings.email_address,
-        subject: emailData.subject,
+        subject: subject,
         articles_count: articles.length,
-        status: 'sent'
+        status: 'sent',
+        sent_at: new Date().toISOString()
       }]);
 
-    if (historyError) {
-      console.error('Error saving email history:', historyError);
+    if (logError) {
+      console.error('Error saving email log:', logError);
     }
 
     return new Response(JSON.stringify({
       success: true,
       message: `Email inviata con successo a ${settings.email_address}`,
       articlesCount: articles.length,
-      emailId: emailResponse.data?.id,
-      isTest: isTest
+      emailId: emailResult.data?.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -268,32 +249,6 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error) {
     console.error('Error in send-email function:', error);
     
-    // Salva errore nella cronologia se possibile
-    try {
-      const body = await req.clone().json();
-      if (body.userId) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('email_address')
-          .eq('user_id', body.userId)
-          .maybeSingle();
-
-        if (settings) {
-          await supabase
-            .from('email_history')
-            .insert([{
-              recipient_email: settings.email_address,
-              subject: 'Email Failed',
-              articles_count: 0,
-              status: 'failed',
-              error_message: error.message
-            }]);
-        }
-      }
-    } catch (historyError) {
-      console.error('Error saving failed email to history:', historyError);
-    }
-
     return new Response(JSON.stringify({ 
       error: error.message,
       success: false 
@@ -305,3 +260,4 @@ const handler = async (req: Request): Promise<Response> => {
 };
 
 serve(handler);
+
