@@ -42,6 +42,20 @@ export const RssConfig = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info sezione */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Rss className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <strong>Gestione Feed RSS:</strong> Configura i feed RSS che vuoi monitorare. 
+              FlashBrief raccoglierà automaticamente gli articoli da tutti i feed attivi e li organizzerà 
+              nella tua email personalizzata. Puoi attivare/disattivare i feed in qualsiasi momento.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

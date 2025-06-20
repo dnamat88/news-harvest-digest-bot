@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Clock, Calendar, Play, Pause, Settings } from "lucide-react";
+import { Clock, Calendar, Settings, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const ScheduleConfig = () => {
@@ -23,13 +23,6 @@ export const ScheduleConfig = () => {
     });
   };
 
-  const runNow = () => {
-    toast({
-      title: "Esecuzione avviata",
-      description: "Il workflow è stato avviato manualmente"
-    });
-  };
-
   const nextExecutions = [
     '16/06/2025 18:00',
     '17/06/2025 18:00', 
@@ -40,6 +33,20 @@ export const ScheduleConfig = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info sezione */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Clock className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <strong>Pianificazione Automatica:</strong> Configura quando FlashBrief deve eseguire automaticamente 
+              la raccolta RSS e l'invio della tua email personalizzata. Puoi impostare orari specifici, 
+              fuso orario e decidere se eseguire solo nei giorni feriali.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -110,10 +117,6 @@ export const ScheduleConfig = () => {
                 <Button onClick={saveSchedule}>
                   <Settings className="h-4 w-4 mr-2" />
                   Salva Pianificazione
-                </Button>
-                <Button variant="outline" onClick={runNow}>
-                  <Play className="h-4 w-4 mr-2" />
-                  Esegui Ora
                 </Button>
               </div>
             </>

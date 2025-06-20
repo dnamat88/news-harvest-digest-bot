@@ -50,17 +50,15 @@ export const KeywordManager = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info sezione */}
       <Card className="border-blue-200 bg-blue-50">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <Tag className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm text-blue-800">
-              <strong>Nuova logica Keywords:</strong> Le keywords non eliminano più gli articoli! 
-              Tutti gli articoli vengono salvati e le keywords servono solo per categorizzarli nell'email in:
-              <ul className="mt-2 list-disc list-inside space-y-1">
-                <li><strong>"Articoli con Keywords"</strong> - articoli che contengono le tue parole chiave</li>
-                <li><strong>"Altri Articoli"</strong> - tutti gli altri articoli interessanti</li>
-              </ul>
+              <strong>Gestione Keywords:</strong> Le keywords servono per categorizzare gli articoli nella tua email. 
+              Tutti gli articoli vengono sempre salvati, ma quelli che contengono le tue parole chiave verranno 
+              evidenziati in una sezione dedicata "Articoli con Keywords", mentre gli altri compariranno in "Altri Articoli".
             </div>
           </div>
         </CardContent>

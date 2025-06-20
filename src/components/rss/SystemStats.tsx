@@ -1,9 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Calendar, Clock, Play, Zap, AlertCircle } from "lucide-react";
+import { Activity, Calendar, Clock, Zap, AlertCircle } from "lucide-react";
 import { useExecutionLogs } from "@/hooks/useExecutionLogs";
 import { useFeeds } from "@/hooks/useFeeds";
 import { useKeywords } from "@/hooks/useKeywords";
@@ -25,11 +24,6 @@ export const SystemStats = () => {
     article.data_pubblicazione?.startsWith(today)
   );
 
-  const triggerExecution = () => {
-    // TODO: Implementare trigger manuale dell'esecuzione
-    console.log('Triggering manual execution...');
-  };
-
   const isLoading = logsLoading || feedsLoading || keywordsLoading || articlesLoading;
 
   if (isLoading) {
@@ -49,6 +43,20 @@ export const SystemStats = () => {
 
   return (
     <div className="space-y-6">
+      {/* Info sezione */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-3">
+            <Activity className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-800">
+              <strong>Monitoraggio Sistema:</strong> Visualizza le statistiche in tempo reale del tuo sistema FlashBrief. 
+              Controlla lo stato dei feed RSS attivi, le keywords configurate e gli articoli raccolti. 
+              Monitora le esecuzioni passate e programmate per tenere traccia delle performance del sistema.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Statistiche generali */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
@@ -113,10 +121,6 @@ export const SystemStats = () => {
                 Monitoraggio dell'ultima esecuzione del workflow di raccolta notizie
               </CardDescription>
             </div>
-            <Button onClick={triggerExecution} size="sm">
-              <Play className="h-4 w-4 mr-2" />
-              Esegui Ora
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -161,7 +165,7 @@ export const SystemStats = () => {
                 </div>
                 <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-2xl font-bold text-blue-600">{lastExecution.articles_filtered}</p>
-                  <p className="text-sm text-blue-600">Articoli Filtrati</p>
+                  <p className="text-sm text-blue-600">Articoli Salvati</p>
                 </div>
               </div>
 
@@ -176,41 +180,77 @@ export const SystemStats = () => {
         </CardContent>
       </Card>
 
-      {/* Prossima esecuzione pianificata */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Pianificazione
-          </CardTitle>
-          <CardDescription>
-            Sistema di esecuzione automatica
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Esecuzione Automatica</p>
-                <p className="text-sm text-muted-foreground">
-                  Il sistema viene eseguito automaticamente ogni giorno alle 18:00
-                </p>
+      {/* Pianificazione ed esecuzioni */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Esecuzione Automatica */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Esecuzione Automatica
+            </CardTitle>
+            <CardDescription>
+              Sistema di esecuzione automatica programmata
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Pianificazione Attiva</p>
+                  <p className="text-sm text-muted-foreground">
+                    Esecuzione automatica ogni giorno alle 18:00
+                  </p>
+                </div>
+                <Badge variant="default">Attiva</Badge>
               </div>
-              <Badge variant="default">Attiva</Badge>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div>
-                <p className="font-medium">Prossima Esecuzione</p>
-                <p className="text-sm text-muted-foreground">
-                  {new Date().getHours() >= 18 ? 'Domani' : 'Oggi'} alle 18:00
-                </p>
+              
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Prossima Esecuzione</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date().getHours() >= 18 ? 'Domani' : 'Oggi'} alle 18:00
+                  </p>
+                </div>
+                <Clock className="h-5 w-5 text-muted-foreground" />
               </div>
-              <Clock className="h-5 w-5 text-muted-foreground" />
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Esecuzioni Manuali */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Esecuzioni Manuali
+            </CardTitle>
+            <CardDescription>
+              Tracciamento delle esecuzioni lanciate manualmente
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{logs.length}</div>
+                  <div className="text-sm text-muted-foreground">Totali</div>
+                </div>
+                <div className="text-center p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {logs.filter(log => log.status === 'completed').length}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Completate</div>
+                </div>
+              </div>
+              
+              <div className="text-center text-sm text-muted-foreground">
+                Usa il pulsante "Esegui ora" in alto per avviare una nuova esecuzione manuale
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
