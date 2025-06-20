@@ -1,263 +1,300 @@
 
-
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.0';
-import { Resend } from "npm:resend@2.0.0";
-
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
-interface EmailRequest {
-  userId: string;
-  isTest?: boolean;
 }
 
-const handler = async (req: Request): Promise<Response> => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { userId, isTest = false }: EmailRequest = await req.json();
-    console.log(`Starting email send process for user: ${userId}, test: ${isTest}`);
+    const { userId, isTest = false } = await req.json()
+    console.log(`Starting email send process for user: ${userId}, test: ${isTest}`)
 
-    // Ottieni impostazioni utente
-    const { data: settings, error: settingsError } = await supabase
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Get user settings
+    const { data: userSettings, error: settingsError } = await supabase
       .from('user_settings')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
+      .maybeSingle()
 
-    if (settingsError) throw settingsError;
-    if (!settings) {
-      throw new Error('User settings not found');
+    if (settingsError) {
+      console.error('Error fetching user settings:', settingsError)
+      throw settingsError
     }
 
-    console.log(`Email settings found for user: ${settings.email_address}`);
+    if (!userSettings || !userSettings.email_enabled) {
+      throw new Error('Email not enabled for user')
+    }
 
-    let articles;
-    
+    console.log(`Email settings found for user: ${userSettings.email_address}`)
+
+    let articles = []
+    let keywords = []
+
     if (isTest) {
-      console.log('Using test articles for email');
-      // Articoli di test per la demo
+      console.log('Using test articles for email')
+      // Generate test articles for test emails
       articles = [
         {
-          titolo: "Test Article 1 - Crypto News",
-          link: "https://example.com/crypto-1",
+          id: 'test-1',
+          titolo: 'Test Article 1: Fintech Innovation',
+          descrizione: 'This is a test article about fintech innovations and banking technology.',
+          url: 'https://example.com/article1',
           data_pubblicazione: new Date().toISOString(),
-          fonte: "Test Feed",
-          sommario: "This is a test article about cryptocurrency trends and market analysis.",
-          matched_keywords: ["crypto", "bitcoin"]
+          fonte: 'Test Feed',
+          match_keywords: ['fintech', 'banking']
         },
         {
-          titolo: "Test Article 2 - Banking Innovation",
-          link: "https://example.com/banking-1", 
+          id: 'test-2',
+          titolo: 'Test Article 2: Blockchain Technology',
+          descrizione: 'This is a test article about blockchain and cryptocurrency developments.',
+          url: 'https://example.com/article2',
           data_pubblicazione: new Date().toISOString(),
-          fonte: "Test Feed",
-          sommario: "This is a test article about new banking technologies and digital transformation.",
-          matched_keywords: ["banking", "fintech"]
+          fonte: 'Test Feed',
+          match_keywords: ['blockchain']
         },
         {
-          titolo: "Test Article 3 - Market Update",
-          link: "https://example.com/market-1",
+          id: 'test-3',
+          titolo: 'Test Article 3: General Tech News',
+          descrizione: 'This is a general technology news article without specific keywords.',
+          url: 'https://example.com/article3',
           data_pubblicazione: new Date().toISOString(),
-          fonte: "Test Feed", 
-          sommario: "This is a test article with general market updates and economic news.",
-          matched_keywords: []
+          fonte: 'Test Feed',
+          match_keywords: []
         }
-      ];
+      ]
+
+      keywords = [
+        { parola: 'fintech', attiva: true },
+        { parola: 'banking', attiva: true },
+        { parola: 'blockchain', attiva: true }
+      ]
     } else {
-      // Ottieni articoli recenti dell'utente
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      const { data: userArticles, error: articlesError } = await supabase
+      // Get recent articles for real emails
+      const { data: articlesData, error: articlesError } = await supabase
         .from('articoli')
         .select('*')
         .eq('user_id', userId)
-        .gte('data_pubblicazione', yesterday.toISOString())
+        .gte('data_pubblicazione', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('data_pubblicazione', { ascending: false })
-        .limit(settings.max_articles_per_email);
 
-      if (articlesError) throw articlesError;
-      articles = userArticles || [];
+      if (articlesError) {
+        console.error('Error fetching articles:', articlesError)
+        throw articlesError
+      }
+
+      articles = articlesData || []
+
+      // Get active keywords
+      const { data: keywordsData, error: keywordsError } = await supabase
+        .from('keywords')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('attiva', true)
+
+      if (keywordsError) {
+        console.error('Error fetching keywords:', keywordsError)
+        throw keywordsError
+      }
+
+      keywords = keywordsData || []
     }
 
-    if (articles.length === 0 && !isTest) {
-      console.log('No new articles found for user');
-      return new Response(JSON.stringify({ 
-        success: true, 
-        message: 'No new articles to send' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    // Categorize articles
+    const keywordArticles = []
+    const otherArticles = []
+
+    for (const article of articles) {
+      const matchedKeywords = []
+      const articleText = `${article.titolo} ${article.descrizione}`.toLowerCase()
+
+      for (const keyword of keywords) {
+        if (articleText.includes(keyword.parola.toLowerCase())) {
+          matchedKeywords.push(keyword.parola)
+        }
+      }
+
+      if (matchedKeywords.length > 0) {
+        keywordArticles.push({ ...article, match_keywords: matchedKeywords })
+      } else {
+        otherArticles.push({ ...article, match_keywords: [] })
+      }
     }
 
-    // Separa articoli per keywords e altri
-    const articlesWithKeywords = articles.filter(article => 
-      article.matched_keywords && article.matched_keywords.length > 0
-    );
-    const otherArticles = articles.filter(article => 
-      !article.matched_keywords || article.matched_keywords.length === 0
-    );
+    // Generate email content
+    const today = new Date().toLocaleDateString('it-IT')
+    const subject = `${isTest ? '[TEST] ' : ''}FlashBrief Daily Digest - ${today}`
 
-    // Genera subject
-    const date = new Date().toLocaleDateString('it-IT');
-    const subject = (isTest ? '[TEST] ' : '') + 
-      settings.email_subject_template
-        .replace('{date}', date)
-        .replace('{count}', articles.length.toString());
-
-    // Genera contenuto HTML
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>RSS Feed Tailor Made - Daily Digest</title>
-        <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-          .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
-          .section { margin-bottom: 30px; }
-          .section-title { color: #495057; font-size: 20px; font-weight: bold; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; }
-          .article { background: white; padding: 20px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-          .article-title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
-          .article-title a { color: #495057; text-decoration: none; }
-          .article-title a:hover { color: #667eea; }
-          .article-meta { font-size: 14px; color: #6c757d; margin-bottom: 10px; }
-          .article-summary { font-size: 16px; line-height: 1.5; }
-          .keywords { margin-top: 10px; }
-          .keyword { background: #667eea; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; display: inline-block; }
-          .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef; color: #6c757d; font-size: 14px; }
-          .stats { background: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>🎯 RSS Feed Tailor Made</h1>
-          <p>Il tuo digest personalizzato - ${date}</p>
+    let emailContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <img src="https://your-domain.com/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" alt="FlashBrief" style="height: 50px; margin-bottom: 10px;">
+          <h1 style="color: #1e40af; margin: 0;">FlashBrief Daily Digest</h1>
+          <p style="color: #6b7280; margin: 5px 0;">${today}</p>
         </div>
-        
-        <div class="content">
-          <div class="stats">
-            <strong>${articles.length} articoli trovati</strong> • 
-            <strong>${articlesWithKeywords.length} con keywords</strong> • 
-            <strong>${otherArticles.length} altri</strong>
-          </div>
+    `
 
-          ${articlesWithKeywords.length > 0 ? `
-          <div class="section">
-            <h2 class="section-title">🎯 Articoli con Keywords (${articlesWithKeywords.length})</h2>
-            ${articlesWithKeywords.map(article => `
-              <div class="article">
-                <div class="article-title">
-                  <a href="${article.link}" target="_blank">${article.titolo}</a>
-                </div>
-                <div class="article-meta">
-                  📰 ${article.fonte} • 📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}
-                </div>
-                <div class="article-summary">${article.sommario}</div>
-                <div class="keywords">
-                  ${(article.matched_keywords || []).map(keyword => `<span class="keyword">${keyword}</span>`).join('')}
-                </div>
+    if (keywordArticles.length > 0) {
+      emailContent += `
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #1e40af; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+            📌 Articoli con Keywords (${keywordArticles.length})
+          </h2>
+      `
+
+      for (const article of keywordArticles) {
+        emailContent += `
+          <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">
+              <a href="${article.url}" style="color: #1e40af; text-decoration: none;">${article.titolo}</a>
+            </h3>
+            <p style="margin: 0 0 10px 0; color: #4b5563; line-height: 1.5;">${article.descrizione}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6b7280;">
+              <span>📍 ${article.fonte}</span>
+              <span>📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}</span>
+            </div>
+            ${article.match_keywords && article.match_keywords.length > 0 ? `
+              <div style="margin-top: 10px;">
+                <strong style="font-size: 12px; color: #7c3aed;">Keywords:</strong>
+                ${article.match_keywords.map(k => `<span style="background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 12px; font-size: 11px; margin-left: 5px;">${k}</span>`).join('')}
               </div>
-            `).join('')}
+            ` : ''}
           </div>
-          ` : ''}
+        `
+      }
+      emailContent += `</div>`
+    }
 
-          ${otherArticles.length > 0 ? `
-          <div class="section">
-            <h2 class="section-title">📰 Altri Articoli (${otherArticles.length})</h2>
-            ${otherArticles.map(article => `
-              <div class="article">
-                <div class="article-title">
-                  <a href="${article.link}" target="_blank">${article.titolo}</a>
-                </div>
-                <div class="article-meta">
-                  📰 ${article.fonte} • 📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}
-                </div>
-                <div class="article-summary">${article.sommario}</div>
-              </div>
-            `).join('')}
+    if (otherArticles.length > 0) {
+      emailContent += `
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #059669; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">
+            📰 Altri Articoli (${otherArticles.length})
+          </h2>
+      `
+
+      for (const article of otherArticles) {
+        emailContent += `
+          <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #e5e7eb; border-radius: 8px;">
+            <h3 style="margin: 0 0 10px 0; color: #1f2937;">
+              <a href="${article.url}" style="color: #059669; text-decoration: none;">${article.titolo}</a>
+            </h3>
+            <p style="margin: 0 0 10px 0; color: #4b5563; line-height: 1.5;">${article.descrizione}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6b7280;">
+              <span>📍 ${article.fonte}</span>
+              <span>📅 ${new Date(article.data_pubblicazione).toLocaleDateString('it-IT')}</span>
+            </div>
           </div>
-          ` : ''}
+        `
+      }
+      emailContent += `</div>`
+    }
+
+    if (keywordArticles.length === 0 && otherArticles.length === 0) {
+      emailContent += `
+        <div style="text-align: center; padding: 40px 20px; color: #6b7280;">
+          <h3>Nessun nuovo articolo oggi</h3>
+          <p>Il sistema FlashBrief non ha trovato nuovi articoli nelle ultime 24 ore.</p>
         </div>
+      `
+    }
 
-        <div class="footer">
-          <p>📧 Email generata automaticamente da RSS Feed Tailor Made</p>
-          <p>Configurazione: ${settings.max_articles_per_email} articoli max • Formato: ${settings.email_format}</p>
+    emailContent += `
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px;">
+          <p>Email generata automaticamente da FlashBrief</p>
+          <p>Se non desideri più ricevere queste email, puoi disattivarle dalle impostazioni.</p>
         </div>
-      </body>
-      </html>
-    `;
+      </div>
+    `
 
-    console.log(`Sending email via Resend...`, {
-      to: [settings.email_address],
-      subject,
-      contentLength: htmlContent.length
-    });
+    // Send email using Resend
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      throw new Error('RESEND_API_KEY not configured')
+    }
 
-    // Invia email
-    const emailResult = await resend.emails.send({
-      from: 'RSS Feed Tailor Made <onboarding@resend.dev>',
-      to: [settings.email_address],
+    const emailData = {
+      from: 'onboarding@resend.dev',
+      to: [userSettings.email_address],
       subject: subject,
-      html: htmlContent,
-    });
-
-    if (emailResult.error) {
-      throw new Error(`Resend error: ${emailResult.error.message}`);
+      html: emailContent
     }
 
-    console.log(`Email sent successfully: ${emailResult.data?.id}`);
+    console.log('Sending email via Resend...', {
+      to: emailData.to,
+      subject: emailData.subject,
+      contentLength: emailData.html.length
+    })
 
-    // Salva nel log email
-    const { error: logError } = await supabase
-      .from('email_history')
-      .insert([{
-        recipient_email: settings.email_address,
+    const resendResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(emailData)
+    })
+
+    if (!resendResponse.ok) {
+      const errorData = await resendResponse.json()
+      console.error('Resend API error:', errorData)
+      throw new Error(`Resend API error: ${errorData.message}`)
+    }
+
+    const resendResult = await resendResponse.json()
+    console.log(`Email sent successfully: ${resendResult.id}`)
+
+    // Save to email history
+    if (!isTest) {
+      await supabase.from('email_history').insert([{
+        user_id: userId,
+        email_address: userSettings.email_address,
         subject: subject,
         articles_count: articles.length,
-        status: 'sent',
-        sent_at: new Date().toISOString()
-      }]);
-
-    if (logError) {
-      console.error('Error saving email log:', logError);
+        keyword_articles_count: keywordArticles.length,
+        other_articles_count: otherArticles.length,
+        sent_at: new Date().toISOString(),
+        resend_id: resendResult.id
+      }])
     }
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: `Email inviata con successo a ${settings.email_address}`,
-      articlesCount: articles.length,
-      emailId: emailResult.data?.id
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Email sent successfully',
+        emailId: resendResult.id,
+        articlesCount: articles.length,
+        keywordArticlesCount: keywordArticles.length,
+        otherArticlesCount: otherArticles.length
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      },
+    )
 
   } catch (error) {
-    console.error('Error in send-email function:', error);
-    
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      success: false 
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('Error in send-email function:', error)
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        details: error.toString()
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      },
+    )
   }
-};
-
-serve(handler);
-
+})

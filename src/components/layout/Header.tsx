@@ -11,7 +11,12 @@ export const Header = () => {
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-semibold">RSS Feed Tailor Made</h1>
+          <img 
+            src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
+            alt="FlashBrief Logo" 
+            className="h-8 w-8"
+          />
+          <h1 className="text-xl font-semibold">FlashBrief</h1>
         </div>
         
         <div className="flex items-center gap-4">
