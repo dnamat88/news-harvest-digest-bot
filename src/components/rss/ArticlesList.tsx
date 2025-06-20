@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExternalLink, Calendar, Filter, Search, FileText, Download } from "lucide-react";
+import { Filter, Search, FileText, Download } from "lucide-react";
 import { useArticles } from "@/hooks/useArticles";
+import { LazyArticlesList } from "@/components/common/LazyArticlesList";
 
 export const ArticlesList = () => {
   const { articles, loading } = useArticles();
@@ -106,7 +107,7 @@ export const ArticlesList = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="flex-1 px-3 py-2 border rounded-md text-sm"
+                className="flex-1 px-3 py-2 border rounded-md text-sm bg-background"
               >
                 <option value="all">Tutte le categorie</option>
                 {categories.map(category => (
@@ -119,7 +120,7 @@ export const ArticlesList = () => {
               <select
                 value={selectedSource}
                 onChange={(e) => setSelectedSource(e.target.value)}
-                className="flex-1 px-3 py-2 border rounded-md text-sm"
+                className="flex-1 px-3 py-2 border rounded-md text-sm bg-background"
               >
                 <option value="all">Tutte le fonti</option>
                 {sources.map(source => (
@@ -131,82 +132,21 @@ export const ArticlesList = () => {
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-        {filteredArticles.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                {articles.length === 0 
-                  ? "Nessun articolo disponibile. Gli articoli verranno mostrati qui quando il sistema RSS inizierà a raccogliere le notizie."
-                  : "Nessun articolo trovato con i filtri selezionati."
-                }
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredArticles.map((article) => (
-            <Card key={article.id}>
-              <CardContent className="p-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start gap-4">
-                    <h3 className="font-semibold text-lg leading-tight">
-                      {article.titolo || 'Titolo non disponibile'}
-                    </h3>
-                    {article.link && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(article.link, '_blank')}
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {article.sommario && (
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {article.sommario}
-                    </p>
-                  )}
-                  
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    {article.data_pubblicazione && (
-                      <>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(article.data_pubblicazione).toLocaleString('it-IT')}
-                        </div>
-                        <span>•</span>
-                      </>
-                    )}
-                    {article.fonte && (
-                      <>
-                        <span>{article.fonte}</span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <Badge variant="outline" className="text-xs">
-                      {article.categoria || 'Senza categoria'}
-                    </Badge>
-                  </div>
-                  
-                  {article.matched_keywords && article.matched_keywords.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      <span className="text-xs text-muted-foreground mr-2">Keywords:</span>
-                      {article.matched_keywords.map((keyword, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {keyword}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+      {filteredArticles.length === 0 ? (
+        <Card>
+          <CardContent className="text-center py-8">
+            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              {articles.length === 0 
+                ? "Nessun articolo disponibile. Gli articoli verranno mostrati qui quando il sistema RSS inizierà a raccogliere le notizie."
+                : "Nessun articolo trovato con i filtri selezionati."
+              }
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <LazyArticlesList articles={filteredArticles} itemsPerPage={15} />
+      )}
     </div>
   );
 };

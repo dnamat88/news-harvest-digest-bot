@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw, Settings } from "lucide-react";
 import { RssConfig } from "@/components/rss/RssConfig";
 import { KeywordManager } from "@/components/rss/KeywordManager";
 import { ArticlesList } from "@/components/rss/ArticlesList";
@@ -11,6 +11,9 @@ import { SystemStats } from "@/components/rss/SystemStats";
 import { EmailConfig } from "@/components/rss/EmailConfig";
 import { ScheduleConfig } from "@/components/rss/ScheduleConfig";
 import { SystemTest } from "@/components/rss/SystemTest";
+import { ThemeToggle } from "@/components/common/ThemeToggle";
+import { ConfigBackup } from "@/components/common/ConfigBackup";
+import { EmailPreview } from "@/components/email/EmailPreview";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
@@ -53,6 +56,9 @@ const Dashboard = () => {
               className="h-16 w-16"
             />
             <h1 className="text-4xl font-bold">FlashBrief Dashboard</h1>
+            <div className="ml-4">
+              <ThemeToggle />
+            </div>
           </div>
           <p className="text-muted-foreground text-lg">
             Gestisci e monitora il sistema di raccolta notizie personalizzato
@@ -74,13 +80,14 @@ const Dashboard = () => {
         </div>
 
         <Tabs defaultValue="monitor" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="monitor">Monitoraggio</TabsTrigger>
             <TabsTrigger value="feeds">Feed RSS</TabsTrigger>
             <TabsTrigger value="keywords">Keywords</TabsTrigger>
             <TabsTrigger value="schedule">Pianificazione</TabsTrigger>
             <TabsTrigger value="email">Email</TabsTrigger>
-            <TabsTrigger value="test">Test Sistema</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="settings">Impostazioni</TabsTrigger>
           </TabsList>
 
           <TabsContent value="monitor" className="space-y-6">
@@ -104,8 +111,13 @@ const Dashboard = () => {
             <EmailConfig />
           </TabsContent>
 
-          <TabsContent value="test" className="space-y-6">
+          <TabsContent value="preview" className="space-y-6">
+            <EmailPreview />
             <SystemTest />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <ConfigBackup />
           </TabsContent>
         </Tabs>
       </div>
