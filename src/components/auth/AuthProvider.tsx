@@ -58,6 +58,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => subscription.unsubscribe()
   }, [configured])
 
+  const getRedirectUrl = () => {
+    // For GitHub Pages, use the full GitHub Pages URL
+    const currentUrl = window.location.origin
+    if (currentUrl.includes('github.io')) {
+      return `${currentUrl}/news-harvest-digest-bot/`
+    }
+    return `${currentUrl}/`
+  }
+
   const signIn = async (email: string, password: string) => {
     if (!supabase) {
       return { error: { message: 'Supabase not configured' } }
@@ -75,9 +84,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { error: { message: 'Supabase not configured' } }
     }
     
+    const redirectUrl = getRedirectUrl()
+    console.log('Using redirect URL:', redirectUrl)
+    
     const { error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: redirectUrl
+      }
     })
     return { error }
   }
