@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { LandingPage } from "@/pages/LandingPage";
 import { SupabaseSetup } from "@/components/auth/SupabaseSetup";
 import { UpdatePasswordForm } from "@/components/auth/UpdatePasswordForm";
 import { Header } from "@/components/layout/Header";
@@ -57,7 +57,7 @@ const AppContent = () => {
   }
 
   if (!user) {
-    return <LoginForm />;
+    return <LandingPage />;
   }
 
   // Show password reset form if user is authenticated and coming from reset link
