@@ -16,10 +16,12 @@ import { ConfigBackup } from "@/components/common/ConfigBackup";
 import { EmailPreview } from "@/components/email/EmailPreview";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Dashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const handleManualExecution = async () => {
     setIsProcessing(true);
@@ -46,80 +48,105 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <img 
-              src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
-              alt="FlashBrief Logo" 
-              className="h-16 w-16"
-            />
-            <h1 className="text-4xl font-bold">FlashBrief Dashboard</h1>
-            <div className="ml-4">
-              <ThemeToggle />
+    <div className="bg-background min-h-screen">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        <div className="space-y-4 sm:space-y-6">
+          {/* Header Section */}
+          <div className="text-center space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-3">
+                <img 
+                  src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
+                  alt="FlashBrief Logo" 
+                  className="h-12 w-12 sm:h-16 sm:w-16"
+                />
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                  FlashBrief Dashboard
+                </h1>
+              </div>
+              <div className="sm:ml-4">
+                <ThemeToggle />
+              </div>
+            </div>
+            <p className="text-muted-foreground text-base sm:text-lg px-2">
+              Gestisci e monitora il sistema di raccolta notizie personalizzato
+            </p>
+            <div className="flex justify-center mt-3 sm:mt-4">
+              <Button 
+                onClick={handleManualExecution}
+                disabled={isProcessing}
+                className="flex items-center gap-2 text-sm sm:text-base px-4 py-2 sm:px-6 sm:py-3"
+                size={isMobile ? "sm" : "default"}
+              >
+                {isProcessing ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {isProcessing ? 'Elaborazione...' : 'Esegui ora'}
+              </Button>
             </div>
           </div>
-          <p className="text-muted-foreground text-lg">
-            Gestisci e monitora il sistema di raccolta notizie personalizzato
-          </p>
-          <div className="flex justify-center mt-4">
-            <Button 
-              onClick={handleManualExecution}
-              disabled={isProcessing}
-              className="flex items-center gap-2"
-            >
-              {isProcessing ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
+
+          {/* Mobile-optimized Tabs */}
+          <Tabs defaultValue="monitor" className="w-full">
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2 gap-1 h-auto p-1' : 'grid-cols-7'}`}>
+              {isMobile ? (
+                <>
+                  <TabsTrigger value="monitor" className="text-xs py-2">Monitor</TabsTrigger>
+                  <TabsTrigger value="feeds" className="text-xs py-2">Feed RSS</TabsTrigger>
+                  <TabsTrigger value="keywords" className="text-xs py-2">Keywords</TabsTrigger>
+                  <TabsTrigger value="schedule" className="text-xs py-2">Piano</TabsTrigger>
+                  <TabsTrigger value="email" className="text-xs py-2">Email</TabsTrigger>
+                  <TabsTrigger value="preview" className="text-xs py-2">Preview</TabsTrigger>
+                  <TabsTrigger value="settings" className="text-xs py-2">Impost.</TabsTrigger>
+                </>
               ) : (
-                <Play className="h-4 w-4" />
+                <>
+                  <TabsTrigger value="monitor">Monitoraggio</TabsTrigger>
+                  <TabsTrigger value="feeds">Feed RSS</TabsTrigger>
+                  <TabsTrigger value="keywords">Keywords</TabsTrigger>
+                  <TabsTrigger value="schedule">Pianificazione</TabsTrigger>
+                  <TabsTrigger value="email">Email</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                  <TabsTrigger value="settings">Impostazioni</TabsTrigger>
+                </>
               )}
-              {isProcessing ? 'Elaborazione in corso...' : 'Esegui ora'}
-            </Button>
-          </div>
+            </TabsList>
+
+            <div className="mt-4 sm:mt-6">
+              <TabsContent value="monitor" className="space-y-4 sm:space-y-6">
+                <SystemStats />
+                <ArticlesList />
+              </TabsContent>
+
+              <TabsContent value="feeds" className="space-y-4 sm:space-y-6">
+                <RssConfig />
+              </TabsContent>
+
+              <TabsContent value="keywords" className="space-y-4 sm:space-y-6">
+                <KeywordManager />
+              </TabsContent>
+
+              <TabsContent value="schedule" className="space-y-4 sm:space-y-6">
+                <ScheduleConfig />
+              </TabsContent>
+
+              <TabsContent value="email" className="space-y-4 sm:space-y-6">
+                <EmailConfig />
+              </TabsContent>
+
+              <TabsContent value="preview" className="space-y-4 sm:space-y-6">
+                <EmailPreview />
+                <SystemTest />
+              </TabsContent>
+
+              <TabsContent value="settings" className="space-y-4 sm:space-y-6">
+                <ConfigBackup />
+              </TabsContent>
+            </div>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="monitor" className="w-full">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="monitor">Monitoraggio</TabsTrigger>
-            <TabsTrigger value="feeds">Feed RSS</TabsTrigger>
-            <TabsTrigger value="keywords">Keywords</TabsTrigger>
-            <TabsTrigger value="schedule">Pianificazione</TabsTrigger>
-            <TabsTrigger value="email">Email</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="settings">Impostazioni</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="monitor" className="space-y-6">
-            <SystemStats />
-            <ArticlesList />
-          </TabsContent>
-
-          <TabsContent value="feeds" className="space-y-6">
-            <RssConfig />
-          </TabsContent>
-
-          <TabsContent value="keywords" className="space-y-6">
-            <KeywordManager />
-          </TabsContent>
-
-          <TabsContent value="schedule" className="space-y-6">
-            <ScheduleConfig />
-          </TabsContent>
-
-          <TabsContent value="email" className="space-y-6">
-            <EmailConfig />
-          </TabsContent>
-
-          <TabsContent value="preview" className="space-y-6">
-            <EmailPreview />
-            <SystemTest />
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-6">
-            <ConfigBackup />
-          </TabsContent>
-        </Tabs>
       </div>
     </div>
   );

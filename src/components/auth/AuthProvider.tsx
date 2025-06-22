@@ -10,6 +10,7 @@ interface AuthContextType {
   isConfigured: boolean
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signUp: (email: string, password: string) => Promise<{ error: any }>
+  resetPassword: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<void>
 }
 
@@ -97,6 +98,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return { error }
   }
 
+  const resetPassword = async (email: string) => {
+    if (!supabase) {
+      return { error: { message: 'Supabase not configured' } }
+    }
+    
+    const redirectUrl = getRedirectUrl()
+    console.log('Using password reset redirect URL:', redirectUrl)
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    })
+    return { error }
+  }
+
   const signOut = async () => {
     if (supabase) {
       await supabase.auth.signOut()
@@ -110,6 +125,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isConfigured: configured,
     signIn,
     signUp,
+    resetPassword,
     signOut,
   }
 
