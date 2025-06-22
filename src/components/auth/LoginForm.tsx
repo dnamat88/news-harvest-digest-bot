@@ -52,7 +52,7 @@ export const LoginForm = () => {
         <CardHeader className="text-center">
           <CardTitle className="flex items-center gap-2 justify-center text-2xl">
             <LogIn className="h-6 w-6" />
-            RSS Banking News
+            FlashBrief
           </CardTitle>
           <CardDescription>
             {isSignUp ? 'Crea il tuo account' : 'Accedi alla dashboard'}
