@@ -3,14 +3,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/components/auth/AuthProvider";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { SupabaseSetup } from "@/components/auth/SupabaseSetup";
+import { UpdatePasswordForm } from "@/components/auth/UpdatePasswordForm";
 import { Header } from "@/components/layout/Header";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import { useEffect, useState } from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +30,16 @@ const queryClient = new QueryClient({
 
 const AppContent = () => {
   const { user, loading, isConfigured } = useAuth();
+  const [searchParams] = useSearchParams();
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+
+  useEffect(() => {
+    // Check if user is coming from password reset email
+    const isReset = searchParams.get('reset') === 'true';
+    if (isReset && user) {
+      setShowPasswordReset(true);
+    }
+  }, [searchParams, user]);
 
   if (loading) {
     return (
@@ -46,6 +58,19 @@ const AppContent = () => {
 
   if (!user) {
     return <LoginForm />;
+  }
+
+  // Show password reset form if user is authenticated and coming from reset link
+  if (showPasswordReset) {
+    return (
+      <UpdatePasswordForm 
+        onSuccess={() => {
+          setShowPasswordReset(false);
+          // Clear the reset parameter from URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }} 
+      />
+    );
   }
 
   return (
