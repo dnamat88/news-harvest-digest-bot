@@ -7,14 +7,20 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from './AuthProvider'
 import { useToast } from '@/hooks/use-toast'
 import { LogIn, Mail, Lock } from 'lucide-react'
+import { PasswordResetForm } from './PasswordResetForm'
 
 export const LoginForm = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
   const [loading, setLoading] = useState(false)
   const { signIn, signUp } = useAuth()
   const { toast } = useToast()
+
+  if (showPasswordReset) {
+    return <PasswordResetForm onBack={() => setShowPasswordReset(false)} />
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -88,17 +94,31 @@ export const LoginForm = () => {
               {loading ? 'Caricamento...' : (isSignUp ? 'Registrati' : 'Accedi')}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            <Button
-              variant="link"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm"
-            >
-              {isSignUp 
-                ? 'Hai già un account? Accedi' 
-                : 'Non hai un account? Registrati'
-              }
-            </Button>
+          
+          <div className="mt-4 space-y-2">
+            {!isSignUp && (
+              <div className="text-center">
+                <Button
+                  variant="link"
+                  onClick={() => setShowPasswordReset(true)}
+                  className="text-sm text-muted-foreground"
+                >
+                  Hai dimenticato la password?
+                </Button>
+              </div>
+            )}
+            <div className="text-center">
+              <Button
+                variant="link"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm"
+              >
+                {isSignUp 
+                  ? 'Hai già un account? Accedi' 
+                  : 'Non hai un account? Registrati'
+                }
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

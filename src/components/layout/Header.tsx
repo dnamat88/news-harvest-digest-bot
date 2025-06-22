@@ -14,16 +14,32 @@ export const Header = () => {
   const { user, signOut } = useAuth()
   const isMobile = useIsMobile()
 
+  const LogoImage = () => (
+    <img 
+      src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
+      alt="FlashBrief Logo" 
+      className={`${isMobile ? 'h-6 w-6' : 'h-8 w-8'}`}
+      onError={(e) => {
+        // Fallback in case the image doesn't load
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+      }}
+    />
+  )
+
+  const LogoFallback = () => (
+    <div className={`${isMobile ? 'h-6 w-6' : 'h-8 w-8'} bg-primary rounded-full flex items-center justify-center text-white font-bold text-sm hidden`}>
+      F
+    </div>
+  )
+
   if (isMobile) {
     return (
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-2">
-            <img 
-              src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
-              alt="FlashBrief Logo" 
-              className="h-6 w-6"
-            />
+            <LogoImage />
+            <LogoFallback />
             <h1 className="text-lg font-semibold">FlashBrief</h1>
           </div>
           
@@ -59,11 +75,8 @@ export const Header = () => {
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center justify-between">
         <div className="flex items-center gap-2">
-          <img 
-            src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
-            alt="FlashBrief Logo" 
-            className="h-8 w-8"
-          />
+          <LogoImage />
+          <LogoFallback />
           <h1 className="text-xl font-semibold">FlashBrief</h1>
         </div>
         

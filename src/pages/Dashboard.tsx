@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -47,6 +46,24 @@ const Dashboard = () => {
     }
   };
 
+  const LogoImage = () => (
+    <img 
+      src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
+      alt="FlashBrief Logo" 
+      className="h-12 w-12 sm:h-16 sm:w-16"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+      }}
+    />
+  )
+
+  const LogoFallback = () => (
+    <div className="h-12 w-12 sm:h-16 sm:w-16 bg-primary rounded-full flex items-center justify-center text-white font-bold text-xl sm:text-2xl hidden">
+      F
+    </div>
+  )
+
   return (
     <div className="bg-background min-h-screen">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
@@ -55,11 +72,8 @@ const Dashboard = () => {
           <div className="text-center space-y-3 sm:space-y-4">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <div className="flex items-center gap-3">
-                <img 
-                  src="/lovable-uploads/f30e033a-dcdc-467e-bee0-e5292115598d.png" 
-                  alt="FlashBrief Logo" 
-                  className="h-12 w-12 sm:h-16 sm:w-16"
-                />
+                <LogoImage />
+                <LogoFallback />
                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
                   FlashBrief Dashboard
                 </h1>
